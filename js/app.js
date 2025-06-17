@@ -254,6 +254,25 @@ class TodoApp {
       this.showInfo("Aplikacja działa w trybie offline");
     });
 
+    // Obsługa importu i eksportu danych
+    const exportBtn = document.getElementById("exportTasksBtn");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => this.exportAllData());
+    }
+
+    const importInput = document.getElementById("importTasksInput");
+    const importBtn = document.getElementById("importTasksBtn");
+
+    if (importBtn && importInput) {
+      importBtn.addEventListener("click", () => importInput.click());
+      importInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          this.importAllData(file);
+        }
+      });
+    }
+
     console.log("⌨️ Globalne event listenery dodane");
   }
 

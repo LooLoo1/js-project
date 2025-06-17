@@ -103,6 +103,22 @@
             </div>
         </div>
 
+        <!-- Sekcja Importu/Eksportu Zadań -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Import/Eksport Zadań</h2>
+            <div class="flex flex-wrap gap-4">
+                <button id="exportTasksBtn"
+                    class="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+                    Eksportuj Zadania
+                </button>
+                <input type="file" id="importTasksInput" accept=".json" class="hidden">
+                <button id="importTasksBtn"
+                    class="px-6 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors">
+                    Importuj Zadania
+                </button>
+            </div>
+        </div>
+
         <!-- Lista Zadań -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <div class="flex justify-between items-center mb-4">

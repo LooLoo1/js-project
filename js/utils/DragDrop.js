@@ -4,6 +4,7 @@
  */
 class DragDrop {
   constructor(taskManager, taskComponent) {
+    console.log('DragDrop constructor called.');
     this.taskManager = taskManager;
     this.taskComponent = taskComponent;
     this.draggedElement = null;
@@ -18,6 +19,7 @@ class DragDrop {
    * Inicjalizuje obsługę drag & drop
    */
   init() {
+    console.log('DragDrop init() called.');
     this.createPlaceholder();
     this.bindEvents();
   }
@@ -26,6 +28,7 @@ class DragDrop {
    * Tworzy element placeholder dla drag & drop
    */
   createPlaceholder() {
+    console.log('DragDrop createPlaceholder() called.');
     this.placeholder = document.createElement("div");
     this.placeholder.className =
       "drag-placeholder bg-blue-100 border-2 border-dashed border-blue-300 rounded-lg p-4 mb-3 opacity-50";
@@ -38,9 +41,11 @@ class DragDrop {
    * Wiąże zdarzenia drag & drop z kontenerem zadań
    */
   bindEvents() {
+    console.log('DragDrop bindEvents() called.');
     const tasksContainer = document.getElementById("tasksList");
 
     if (tasksContainer) {
+      console.log('tasksList container found, binding drag/drop events.');
       // Zapobieganie domyślnemu zachowaniu dla drag & drop
       tasksContainer.addEventListener(
         "dragover",
@@ -55,6 +60,8 @@ class DragDrop {
         "dragleave",
         this.handleDragLeave.bind(this)
       );
+    } else {
+      console.error('tasksList container not found for DragDrop events!');
     }
   }
 
@@ -393,5 +400,4 @@ class DragDrop {
 }
 
 // Eksportuj klasę do globalnego scope
-window.DragDrop = DragDrop;
 window.DragDrop = DragDrop;

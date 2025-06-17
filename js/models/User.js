@@ -114,7 +114,7 @@ class User {
       typeof name === "string" &&
       name.trim().length >= 2 &&
       name.trim().length <= 50 &&
-      /^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s]+$/.test(name.trim())
+      /^[a-zA-ZąćęłńóśźżĄĆĘŁŃÓŚŹŻ\s0-9]+$/.test(name.trim())
     );
   }
 

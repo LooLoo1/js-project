@@ -4,6 +4,7 @@
  */
 class TodoApp {
   constructor() {
+    console.log('TodoApp constructor called.');
     this.storage = null;
     this.taskManager = null;
     this.userManager = null;
@@ -11,49 +12,15 @@ class TodoApp {
     this.taskComponent = null;
     this.userComponent = null;
     this.isInitialized = false;
-
-    // Poczekaj na załadowanie DOM i wszystkich skryptów
-    this.waitForDependencies();
-  }
-
-  /**
-   * Czeka na załadowanie wszystkich zależności
-   */
-  waitForDependencies() {
-    const checkInterval = setInterval(() => {
-      try {
-        // Sprawdź czy DOM jest gotowy
-        if (document.readyState === "loading") {
-          return;
-        }
-
-        // Sprawdź czy wszystkie klasy są dostępne
-        this.checkDependencies();
-
-        // Jeśli wszystko jest gotowe, zainicjalizuj aplikację
-        clearInterval(checkInterval);
-        this.init();
-      } catch (error) {
-        // Jeśli klasy nie są jeszcze dostępne, kontynuuj sprawdzanie
-        console.log("⏳ Oczekiwanie na załadowanie wszystkich skryptów...");
-      }
-    }, 100); // Sprawdzaj co 100ms
-
-    // Timeout po 10 sekundach
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (!this.isInitialized) {
-        console.error("❌ Timeout podczas ładowania aplikacji");
-        this.showError("Błąd podczas ładowania aplikacji. Odśwież stronę.");
-      }
-    }, 10000);
   }
 
   /**
    * Inicjalizuje aplikację
    */
   async init() {
+    console.log('TodoApp init() called.');
     try {
+      this.checkDependencies();
       console.log("🚀 Inicjalizacja aplikacji Lista Zadań...");
 
       // Inicjalizuj komponenty w odpowiedniej kolejności
@@ -832,49 +799,22 @@ Data kompilacji: ${new Date().toLocaleDateString("pl-PL")}
   }
 
   /**
-   * Uruchamia tryb debugowania
+   * Włącza tryb debugowania
    */
   enableDebugMode() {
-    console.log("🐛 Tryb debugowania włączony");
-
-    // Dodaj informacje debugowania do window
-    window.DEBUG = {
-      app: this,
-      logTasks: () =>
-        console.table(
-          this.taskManager.getAllTasks().map((t) => ({
-            id: t.id,
-            content: t.content,
-            user: this.userManager.getUserById(t.userId)?.name,
-            status: t.status,
-            priority: t.priority,
-            category: t.category,
-          }))
-        ),
-      logUsers: () =>
-        console.table(
-          this.userManager.getAllUsers().map((u) => ({
-            id: u.id,
-            name: u.name,
-            active: u.isActive,
-            tasks: u.taskCount,
-            completed: u.completedTaskCount,
-          }))
-        ),
-      exportData: () => this.exportAllData(),
-      clearData: () => this.clearAllData(),
-      createDemo: () => this.createDemoData(),
-      stats: () => this.showAppStats(),
-    };
-
-    console.log(
-      "Dostępne komendy debugowania w window.DEBUG:",
-      Object.keys(window.DEBUG)
-    );
+    console.warn("🔧 Tryb debugowania WŁĄCZONY.");
+    console.log("Dostępne obiekty globalne:");
+    console.log("app:", window.app);
+    console.log("storage:", window.storage);
+    console.log("taskManager:", window.taskManager);
+    console.log("userManager:", window.userManager);
+    console.log("taskComponent:", window.taskComponent);
+    console.log("userComponent:", window.userComponent);
+    console.log("dragDrop:", window.dragDrop);
   }
 }
 
-// Inicjalizuj aplikację po załadowaniu wszystkich skryptów
 document.addEventListener('DOMContentLoaded', () => {
   const app = new TodoApp();
+  app.init();
 });

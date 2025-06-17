@@ -13,6 +13,7 @@ class Task {
     this.createdAt = new Date();
     this.updatedAt = new Date();
     this.completedAt = null;
+    this.position = null; // New property for drag-and-drop order
   }
 
   /**
@@ -218,6 +219,7 @@ class Task {
       createdAt: this.createdAt.toISOString(),
       updatedAt: this.updatedAt.toISOString(),
       completedAt: this.completedAt ? this.completedAt.toISOString() : null,
+      position: this.position,
     };
   }
 
@@ -240,6 +242,7 @@ class Task {
     if (jsonData.completedAt) {
       task.completedAt = new Date(jsonData.completedAt);
     }
+    task.position = jsonData.position;
     return task;
   }
 

@@ -141,6 +141,7 @@ class TaskComponent {
           break;
         case "activeUserChanged":
           this.updateActiveUserInForm();
+          this.updateUserSelects();
           this.renderTasks();
           break;
       }
@@ -503,11 +504,14 @@ class TaskComponent {
    * Aktualizuje selektory użytkowników
    */
   updateUserSelects() {
+    console.log("TaskComponent.updateUserSelects called.");
     const users = this.userManager.getAllUsers();
+    console.log("TaskComponent.updateUserSelects: Users from UserManager:", users);
 
     // Aktualizuj selektor w formularzu dodawania
     if (this.taskUserSelect) {
       const currentValue = this.taskUserSelect.value;
+      console.log("TaskComponent.updateUserSelects: Task User Select - Current value:", currentValue);
       this.taskUserSelect.innerHTML =
         '<option value="">Wybierz użytkownika</option>';
 
@@ -525,6 +529,7 @@ class TaskComponent {
     // Aktualizuj selektor w filtrach
     if (this.filterUserSelect) {
       const currentValue = this.filterUserSelect.value;
+      console.log("TaskComponent.updateUserSelects: Filter User Select - Current value:", currentValue);
       this.filterUserSelect.innerHTML =
         '<option value="">Wszyscy użytkownicy</option>';
 
@@ -545,6 +550,7 @@ class TaskComponent {
    */
   updateActiveUserInForm() {
     const activeUser = this.userManager.getActiveUser();
+    console.log("TaskComponent.updateActiveUserInForm: Active user:", activeUser);
     if (activeUser && this.taskUserSelect) {
       this.taskUserSelect.value = activeUser.id;
     }
@@ -705,5 +711,4 @@ class TaskComponent {
 }
 
 // Eksportuj klasę do globalnego scope
-window.TaskComponent = TaskComponent;
 window.TaskComponent = TaskComponent;

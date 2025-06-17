@@ -29,6 +29,8 @@ class UserComponent {
     // Przycisk dodawania użytkownika
     if (this.addUserBtn) {
       this.addUserBtn.addEventListener("click", this.handleAddUser.bind(this));
+    } else {
+      console.error('addUserBtn not found!');
     }
 
     // Enter w polu input dla dodawania użytkownika
@@ -45,6 +47,8 @@ class UserComponent {
         "input",
         this.handleInputValidation.bind(this)
       );
+    } else {
+      console.error('newUserInput not found!');
     }
   }
 
@@ -176,7 +180,9 @@ class UserComponent {
    * Renderuje listę użytkowników
    */
   renderUsers() {
-    if (!this.usersContainer) return;
+    if (!this.usersContainer) {
+      return;
+    }
 
     const users = this.userManager.getAllUsers();
 
@@ -666,3 +672,4 @@ Statystyki użytkownika: ${user.name}
     return this.userManager.getActiveUser();
   }
 }
+window.UserComponent = UserComponent;

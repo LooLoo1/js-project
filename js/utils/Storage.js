@@ -250,105 +250,124 @@ class Storage {
    * @returns {boolean} True jeśli wyczyszczono pomyślnie
    */
   clearAllData() {
+    if (!this.isLocalStorageAvailable()) {
+      return false;
+    }
     try {
-      this.removeItem(this.TASKS_KEY);
-      this.removeItem(this.USERS_KEY);
-      this.removeItem(this.ACTIVE_USER_KEY);
-      this.removeItem(this.SETTINGS_KEY);
-
-      console.log("Wyczyszczono wszystkie dane");
+      localStorage.removeItem(this.TASKS_KEY);
+      localStorage.removeItem(this.USERS_KEY);
+      localStorage.removeItem(this.ACTIVE_USER_KEY);
+      localStorage.removeItem(this.SETTINGS_KEY);
+      console.log("Wyczyszczono wszystkie dane z localStorage.");
       return true;
     } catch (e) {
-      console.error("Błąd podczas czyszczenia danych:", e);
+      console.error("Błąd podczas czyszczenia localStorage:", e);
       return false;
     }
   }
 
   /**
-   * Zwraca informacje o wykorzystaniu localStorage
-   * @returns {Object} Informacje o storage
+   * Zwraca informacje o użyciu pamięci localStorage
+   * @returns {Object} Informacje o użyciu pamięci
    */
   getStorageInfo() {
     if (!this.isLocalStorageAvailable()) {
       return {
-        available: false,
-        used: 0,
-        total: 0,
-        percentage: 0,
+        totalSize: "N/A",
+        tasksSize: "N/A",
+        usersSize: "N/A",
+        settingsSize: "N/A",
+        itemsCount: 0,
       };
     }
 
-    try {
-      let used = 0;
-      for (let key in localStorage) {
-        if (localStorage.hasOwnProperty(key)) {
-          used += localStorage[key].length + key.length;
-        }
-      }
-
-      // Przybliżona całkowita pojemność localStorage (zwykle 5-10MB)
-      const total = 5 * 1024 * 1024; // 5MB w bajtach
-      const percentage = (used / total) * 100;
-
-      return {
-        available: true,
-        used: used,
-        total: total,
-        percentage: Math.round(percentage * 100) / 100,
-        usedFormatted: this.formatBytes(used),
-        totalFormatted: this.formatBytes(total),
-      };
-    } catch (e) {
-      console.error("Błąd podczas sprawdzania informacji o storage:", e);
-      return {
-        available: false,
-        used: 0,
-        total: 0,
-        percentage: 0,
-      };
+    let totalBytes = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      const value = localStorage.getItem(key);
+      totalBytes += (key.length + value.length) * 2; // 2 bajty na znak
     }
+
+    const tasksBytes =
+      (localStorage.getItem(this.TASKS_KEY)?.length || 0) * 2;
+    const usersBytes =
+      (localStorage.getItem(this.USERS_KEY)?.length || 0) * 2;
+    const settingsBytes =
+      (localStorage.getItem(this.SETTINGS_KEY)?.length || 0) * 2;
+
+    return {
+      totalSize: this.formatBytes(totalBytes),
+      tasksSize: this.formatBytes(tasksBytes),
+      usersSize: this.formatBytes(usersBytes),
+      settingsSize: this.formatBytes(settingsBytes),
+      itemsCount: localStorage.length,
+    };
   }
 
   /**
-   * Formatuje bajty do czytelnej postaci
+   * Formatuje bajty na czytelny format
    * @param {number} bytes - Liczba bajtów
-   * @returns {string} Sformatowana wielkość
+   * @param {number} decimals - Liczba miejsc po przecinku
+   * @returns {string} Sformatowany rozmiar
    */
-  formatBytes(bytes) {
-    if (bytes === 0) return "0 B";
-
+  formatBytes(bytes, decimals = 2) {
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
   }
 
   /**
-   * Tworzy kopię zapasową danych
-   * @returns {string} JSON string z danymi
+   * Tworzy kopię zapasową wszystkich danych do pliku JSON
    */
   createBackup() {
     const data = this.exportAllData();
-    return JSON.stringify(data, null, 2);
+    const dataStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `todo_app_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log("Utworzono kopię zapasową danych.");
+    alert("Kopia zapasowa danych została utworzona i pobrana.");
   }
 
   /**
-   * Przywraca dane z kopii zapasowej
-   * @param {string} backupJson - JSON string z danymi
-   * @returns {boolean} True jeśli przywrócono pomyślnie
+   * Przywraca dane z pliku kopii zapasowej
+   * @param {File} backupFile - Plik kopii zapasowej
    */
-  restoreFromBackup(backupJson) {
-    try {
-      const data = JSON.parse(backupJson);
-      return this.importAllData(data);
-    } catch (e) {
-      console.error("Błąd podczas przywracania kopii zapasowej:", e);
-      return false;
+  restoreFromBackup(backupFile) {
+    if (!backupFile) {
+      alert("Wybierz plik kopii zapasowej.");
+      return;
     }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (data.tasks && data.users && data.settings && data.version) {
+          this.importAllData(data);
+          alert("Dane zostały pomyślnie przywrócone!");
+          // Opcjonalnie: odśwież aplikację po imporcie
+          window.location.reload();
+        } else {
+          throw new Error("Nieprawidłowy format pliku kopii zapasowej.");
+        }
+      } catch (error) {
+        console.error("Błąd podczas wczytywania kopii zapasowej:", error);
+        alert(
+          "Błąd podczas wczytywania kopii zapasowej: " + error.message
+        );
+      }
+    };
+    reader.readAsText(backupFile);
   }
 }
 
-// Eksportuj klasę do globalnego scope
-window.Storage = Storage;
 window.Storage = Storage;

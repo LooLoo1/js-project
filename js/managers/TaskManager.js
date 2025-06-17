@@ -26,9 +26,12 @@ class TaskManager {
   loadTasks() {
     try {
       this.tasks = this.storage.loadTasks();
+      // Set initial sort to 'position' to maintain drag-and-drop order if no other sort is explicitly set.
+      if (this.currentSort === "created") {
+        this.currentSort = "position";
+      }
       this.applyFiltersAndSort();
       this.notifyObservers("tasksLoaded");
-      console.log("Wczytano zadania:", this.tasks.length);
     } catch (error) {
       console.error("Błąd podczas wczytywania zadań:", error);
       this.tasks = [];
@@ -72,7 +75,6 @@ class TaskManager {
       this.saveTasks();
       this.notifyObservers("taskAdded", task);
 
-      console.log("Dodano nowe zadanie:", task.id);
       return task;
     } catch (error) {
       console.error("Błąd podczas dodawania zadania:", error);
@@ -98,7 +100,6 @@ class TaskManager {
       this.saveTasks();
       this.notifyObservers("taskDeleted", deletedTask);
 
-      console.log("Usunięto zadanie:", taskId);
       return true;
     } catch (error) {
       console.error("Błąd podczas usuwania zadania:", error);
@@ -141,7 +142,6 @@ class TaskManager {
       this.saveTasks();
       this.notifyObservers("taskUpdated", task);
 
-      console.log("Zaktualizowano zadanie:", taskId);
       return true;
     } catch (error) {
       console.error("Błąd podczas aktualizacji zadania:", error);
@@ -167,7 +167,6 @@ class TaskManager {
       this.saveTasks();
       this.notifyObservers("taskStatusToggled", task);
 
-      console.log("Przełączono status zadania:", taskId, "na:", task.status);
       return true;
     } catch (error) {
       console.error("Błąd podczas przełączania statusu zadania:", error);
@@ -247,99 +246,121 @@ class TaskManager {
 
   /**
    * Ustawia sposób sortowania
-   * @param {string} sortBy - Sposób sortowania ('created', 'priority', 'alphabetical')
+   * @param {string} sortBy - Sposób sortowania ('created', 'priority', 'alphabetical', 'position')
+   * @returns {boolean} True jeśli sortowanie zmieniono pomyślnie
    */
   setSortBy(sortBy) {
-    this.currentSort = sortBy;
-    this.applyFiltersAndSort();
-    this.notifyObservers("sortChanged", sortBy);
+    if (["created", "priority", "alphabetical", "position"].includes(sortBy)) {
+      this.currentSort = sortBy;
+      this.applyFiltersAndSort();
+      this.notifyObservers("sortChanged", this.currentSort);
+      return true;
+    }
+    return false;
   }
 
   /**
-   * Stosuje filtry i sortowanie do zadań
+   * Stosuje bieżące filtry i sortowanie do listy zadań
+   * Wynik zapisuje do this.filteredTasks
    */
   applyFiltersAndSort() {
-    // Najpierw filtruj
-    this.filteredTasks = this.tasks.filter((task) =>
-      task.matchesFilters(this.currentFilters)
-    );
+    let tasksToFilter = [...this.tasks];
 
-    // Następnie sortuj
-    this.filteredTasks.sort((a, b) => this.compareTasksForSort(a, b));
+    // Apply filters
+    if (this.currentFilters.userId) {
+      tasksToFilter = tasksToFilter.filter(
+        (task) => task.userId === this.currentFilters.userId
+      );
+    }
+    if (this.currentFilters.status) {
+      tasksToFilter = tasksToFilter.filter(
+        (task) => task.status === this.currentFilters.status
+      );
+    }
+    if (this.currentFilters.category) {
+      tasksToFilter = tasksToFilter.filter(
+        (task) => task.category === this.currentFilters.category
+      );
+    }
+    if (this.currentFilters.priority) {
+      tasksToFilter = tasksToFilter.filter(
+        (task) => task.priority === this.currentFilters.priority
+      );
+    }
+    if (this.currentFilters.searchText) {
+      const lowerCaseSearchText = this.currentFilters.searchText.toLowerCase();
+      tasksToFilter = tasksToFilter.filter(
+        (task) =>
+          task.content.toLowerCase().includes(lowerCaseSearchText) ||
+          task.category.toLowerCase().includes(lowerCaseSearchText)
+      );
+    }
 
-    console.log(
-      "Zastosowano filtry i sortowanie:",
-      this.filteredTasks.length,
-      "zadań"
-    );
+    // Apply sort
+    tasksToFilter.sort((a, b) => this.compareTasksForSort(a, b));
+
+    this.filteredTasks = tasksToFilter;
   }
 
   /**
-   * Porównuje zadania do sortowania
-   * @param {Task} taskA - Pierwsze zadanie
-   * @param {Task} taskB - Drugie zadanie
-   * @returns {number} Wartość dla sortowania
+   * Pomocnicza funkcja do sortowania zadań
+   * @param {Task} taskA
+   * @param {Task} taskB
+   * @returns {number}
    */
   compareTasksForSort(taskA, taskB) {
     switch (this.currentSort) {
-      case "priority":
-        // Sortuj według priorytetu (wysokie na początku)
-        const priorityDiff =
-          taskB.getPriorityValue() - taskA.getPriorityValue();
-        if (priorityDiff !== 0) return priorityDiff;
-        // Jeśli priorytety równe, sortuj według daty utworzenia
-        return taskB.createdAt - taskA.createdAt;
-
-      case "alphabetical":
-        return taskA.content.localeCompare(taskB.content, "pl");
-
       case "created":
+        return taskA.createdAt - taskB.createdAt;
+      case "priority":
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return priorityOrder[taskB.priority] - priorityOrder[taskA.priority];
+      case "alphabetical":
+        return taskA.content.localeCompare(taskB.content);
+      case "position":
+        return taskA.position - taskB.position;
       default:
-        return taskB.createdAt - taskA.createdAt; // Najnowsze na początku
+        return 0;
     }
   }
 
   /**
-   * Przesuwa zadanie na nową pozycję (dla drag & drop)
+   * Przenosi zadanie na nową pozycję w liście
    * @param {string} taskId - ID zadania do przeniesienia
-   * @param {number} newIndex - Nowa pozycja
+   * @param {number} newIndex - Nowa pozycja (indeks)
    * @returns {boolean} True jeśli przeniesiono pomyślnie
    */
   moveTask(taskId, newIndex) {
     try {
       const task = this.getTaskById(taskId);
       if (!task) {
-        throw new Error("Zadanie nie zostało znalezione");
+        throw new Error("Zadanie nie zostało znalezione.");
       }
 
-      const currentIndex = this.tasks.indexOf(task);
+      const currentIndex = this.tasks.findIndex((t) => t.id === taskId);
       if (currentIndex === -1) {
-        throw new Error("Zadanie nie znajduje się w liście");
+        throw new Error("Zadanie nie znaleziono w liście zadań.");
       }
 
-      // Usuń zadanie z obecnej pozycji
+      // Usuń zadanie z bieżącej pozycji
       this.tasks.splice(currentIndex, 1);
 
-      // Wstaw na nową pozycję
-      const insertIndex = Math.min(newIndex, this.tasks.length);
-      this.tasks.splice(insertIndex, 0, task);
+      // Wstaw zadanie na nową pozycję
+      this.tasks.splice(newIndex, 0, task);
+
+      // Update positions after move
+      this.tasks.forEach((t, index) => {
+        t.position = index;
+      });
 
       this.applyFiltersAndSort();
       this.saveTasks();
       this.notifyObservers("taskMoved", {
         task,
         fromIndex: currentIndex,
-        toIndex: insertIndex,
+        toIndex: newIndex,
       });
 
-      console.log(
-        "Przeniesiono zadanie:",
-        taskId,
-        "z pozycji",
-        currentIndex,
-        "na pozycję",
-        insertIndex
-      );
       return true;
     } catch (error) {
       console.error("Błąd podczas przenoszenia zadania:", error);
@@ -349,207 +370,166 @@ class TaskManager {
 
   /**
    * Zwraca statystyki zadań
-   * @param {string} userId - ID użytkownika (opcjonalne)
-   * @returns {Object} Obiekt ze statystykami
+   * @param {string|null} userId - ID użytkownika lub null dla wszystkich zadań
+   * @returns {Object} Statystyki zadań
    */
   getTaskStats(userId = null) {
-    const tasksToAnalyze = userId ? this.getTasksByUser(userId) : this.tasks;
+    const tasks = userId
+      ? this.tasks.filter((task) => task.userId === userId)
+      : this.tasks;
 
-    const stats = {
-      total: tasksToAnalyze.length,
-      pending: tasksToAnalyze.filter((task) => task.status === "pending")
-        .length,
-      completed: tasksToAnalyze.filter((task) => task.status === "done").length,
-      byPriority: {
-        high: tasksToAnalyze.filter((task) => task.priority === "high").length,
-        medium: tasksToAnalyze.filter((task) => task.priority === "medium")
-          .length,
-        low: tasksToAnalyze.filter((task) => task.priority === "low").length,
-      },
-      byCategory: {
-        praca: tasksToAnalyze.filter((task) => task.category === "praca")
-          .length,
-        nauka: tasksToAnalyze.filter((task) => task.category === "nauka")
-          .length,
-        hobby: tasksToAnalyze.filter((task) => task.category === "hobby")
-          .length,
-        osobiste: tasksToAnalyze.filter((task) => task.category === "osobiste")
-          .length,
-      },
-    };
+    const total = tasks.length;
+    const completed = tasks.filter((task) => task.status === "done").length;
+    const pending = total - completed;
 
-    stats.completionPercentage =
-      stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+    const categories = tasks.reduce((acc, task) => {
+      acc[task.category] = (acc[task.category] || 0) + 1;
+      return acc;
+    }, {});
 
-    return stats;
+    const priorities = tasks.reduce((acc, task) => {
+      acc[task.priority] = (acc[task.priority] || 0) + 1;
+      return acc;
+    }, {});
+
+    return { total, completed, pending, categories, priorities };
   }
 
   /**
-   * Eksportuje zadania do JSON
-   * @param {string} userId - ID użytkownika (opcjonalne)
+   * Eksportuje zadania do formatu JSON
+   * @param {string|null} userId - ID użytkownika lub null dla wszystkich zadań
    * @returns {string} JSON string z zadaniami
    */
   exportTasks(userId = null) {
-    const tasksToExport = userId ? this.getTasksByUser(userId) : this.tasks;
-    const exportData = {
-      tasks: tasksToExport.map((task) => task.toJSON()),
-      exportDate: new Date().toISOString(),
-      userId: userId,
-      totalTasks: tasksToExport.length,
-    };
-
-    return JSON.stringify(exportData, null, 2);
+    const tasksToExport = userId
+      ? this.tasks.filter((task) => task.userId === userId)
+      : this.tasks;
+    return JSON.stringify(tasksToExport.map((task) => task.toJSON()), null, 2);
   }
 
   /**
-   * Importuje zadania z JSON
+   * Importuje zadania z formatu JSON
    * @param {string} jsonData - JSON string z zadaniami
    * @returns {boolean} True jeśli zaimportowano pomyślnie
    */
   importTasks(jsonData) {
     try {
-      const data = JSON.parse(jsonData);
-      if (!data.tasks || !Array.isArray(data.tasks)) {
-        throw new Error("Nieprawidłowy format danych");
-      }
-
-      const importedTasks = data.tasks.map((taskData) =>
+      const importedTasksData = JSON.parse(jsonData);
+      const importedTasks = importedTasksData.map((taskData) =>
         Task.fromJSON(taskData)
       );
-      this.tasks.push(...importedTasks);
+
+      // Dodaj nowe zadania, unikając duplikatów
+      importedTasks.forEach((newTask) => {
+        if (!this.tasks.some((existingTask) => existingTask.id === newTask.id)) {
+          this.tasks.push(newTask);
+        }
+      });
 
       this.applyFiltersAndSort();
       this.saveTasks();
-      this.notifyObservers("tasksImported", importedTasks);
-
-      console.log("Zaimportowano zadania:", importedTasks.length);
+      this.notifyObservers("tasksImported");
       return true;
     } catch (error) {
-      console.error("Błąd podczas importu zadań:", error);
+      console.error("Błąd podczas importowania zadań:", error);
       return false;
     }
   }
 
   /**
-   * Usuwa wszystkie zadania użytkownika
+   * Usuwa wszystkie zadania dla danego użytkownika
    * @param {string} userId - ID użytkownika
-   * @returns {number} Liczba usuniętych zadań
+   * @returns {boolean} True jeśli usunięto pomyślnie
    */
   deleteAllUserTasks(userId) {
-    const userTasks = this.getTasksByUser(userId);
-    const deletedCount = userTasks.length;
-
-    this.tasks = this.tasks.filter((task) => task.userId !== userId);
-
-    this.applyFiltersAndSort();
-    this.saveTasks();
-    this.notifyObservers("userTasksDeleted", { userId, deletedCount });
-
-    console.log(
-      "Usunięto wszystkie zadania użytkownika:",
-      userId,
-      "Liczba:",
-      deletedCount
-    );
-    return deletedCount;
+    try {
+      const initialLength = this.tasks.length;
+      this.tasks = this.tasks.filter((task) => task.userId !== userId);
+      if (this.tasks.length < initialLength) {
+        this.applyFiltersAndSort();
+        this.saveTasks();
+        this.notifyObservers("allUserTasksDeleted", userId);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error("Błąd podczas usuwania zadań użytkownika:", error);
+      return false;
+    }
   }
 
   /**
-   * Wyszukuje zadania po tekście
+   * Wyszukuje zadania
    * @param {string} searchText - Tekst do wyszukania
-   * @returns {Task[]} Lista znalezionych zadań
    */
   searchTasks(searchText) {
-    if (!searchText || !searchText.trim()) {
-      return this.tasks;
-    }
-
-    const searchLower = searchText.toLowerCase().trim();
-    return this.tasks.filter(
-      (task) =>
-        task.content.toLowerCase().includes(searchLower) ||
-        task.getCategoryLabel().toLowerCase().includes(searchLower) ||
-        task.getPriorityLabel().toLowerCase().includes(searchLower)
-    );
+    this.setFilters({ searchText });
   }
 
   /**
-   * Dodaje obserwatora zmian
-   * @param {Function} callback - Funkcja callback
+   * Dodaje obserwatora do listy
+   * @param {Function} callback - Funkcja zwrotna
    */
   addObserver(callback) {
     this.observers.push(callback);
   }
 
   /**
-   * Usuwa obserwatora zmian
-   * @param {Function} callback - Funkcja callback do usunięcia
+   * Usuwa obserwatora z listy
+   * @param {Function} callback - Funkcja zwrotna
    */
   removeObserver(callback) {
     this.observers = this.observers.filter((obs) => obs !== callback);
   }
 
   /**
-   * Powiadamia obserwatorów o zmianach
-   * @param {string} event - Typ zdarzenia
-   * @param {*} data - Dane zdarzenia
+   * Powiadamia wszystkich obserwatorów o zdarzeniu
+   * @param {string} event - Nazwa zdarzenia
+   * @param {*} data - Dane do przekazania obserwatorom
    */
   notifyObservers(event, data = null) {
-    this.observers.forEach((callback) => {
+    this.observers.forEach((observer) => {
       try {
-        callback(event, data);
+        observer(event, data);
       } catch (error) {
-        console.error("Błąd w obserwatorze:", error);
+        console.error("Błąd podczas powiadamiania obserwatora:", error);
       }
     });
   }
 
   /**
-   * Zwraca liczbę zadań spełniających kryteria
-   * @returns {number} Liczba przefiltrowanych zadań
+   * Zwraca liczbę przefiltrowanych zadań
+   * @returns {number} Liczba zadań
    */
   getFilteredTasksCount() {
     return this.filteredTasks.length;
   }
 
   /**
-   * Zwraca wszystkie zadania (bez filtrów)
-   * @returns {Task[]} Wszystkie zadania
+   * Zwraca wszystkie zadania
+   * @returns {Task[]} Lista zadań
    */
   getAllTasks() {
-    return [...this.tasks];
+    return this.tasks;
   }
 
   /**
    * Zwraca przefiltrowane zadania
-   * @returns {Task[]} Przefiltrowane zadania
+   * @returns {Task[]} Lista przefiltrowanych zadań
    */
   getFilteredTasks() {
-    return [...this.filteredTasks];
+    return this.filteredTasks;
   }
 
   /**
    * Czyści wszystkie zadania
-   * @returns {boolean} True jeśli wyczyszczono pomyślnie
    */
   clearAllTasks() {
-    try {
-      const deletedCount = this.tasks.length;
-      this.tasks = [];
-      this.filteredTasks = [];
-
-      this.saveTasks();
-      this.notifyObservers("allTasksCleared", deletedCount);
-
-      console.log("Wyczyszczono wszystkie zadania:", deletedCount);
-      return true;
-    } catch (error) {
-      console.error("Błąd podczas czyszczenia zadań:", error);
-      return false;
-    }
+    this.tasks = [];
+    this.applyFiltersAndSort();
+    this.saveTasks();
+    this.notifyObservers("allTasksCleared");
   }
 }
 
-// Eksportuj klasę do globalnego scope
-window.TaskManager = TaskManager;
 window.TaskManager = TaskManager;

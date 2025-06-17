@@ -23,6 +23,7 @@ class UserManager {
   loadUsers() {
     try {
       this.users = this.storage.loadUsers();
+      console.log("UserManager: Users array after loading:", this.users);
       this.updateUserStats();
       this.notifyObservers("usersLoaded");
       console.log("Wczytano użytkowników:", this.users.length);
@@ -495,5 +496,4 @@ class UserManager {
 }
 
 // Eksportuj klasę do globalnego scope
-window.UserManager = UserManager;
 window.UserManager = UserManager;
